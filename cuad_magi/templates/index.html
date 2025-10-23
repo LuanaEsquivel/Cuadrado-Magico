@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link rel="stylesheet" href="./static/styles.css">
+        <title>Juego</title>
+    </head>
+
+    <body>
+
+        <div class="container">
+            <h1>Cuadrado Mágico</h1>
+            <p class="subtitle">Ingresá números para formar un cuadrado mágico donde todas las filas, columnas y diagonales sumen lo mismo.</p>
+
+            <div class="grid-wrapper">
+                <div class="grid-container" id="gridContainer">
+                    <div class="grid" id="grid">
+                        <input type="number" class="cell" data-row="0" data-col="0" placeholder="...">
+                        <input type="number" class="cell" data-row="0" data-col="1" placeholder="...">
+                        <input type="number" class="cell" data-row="0" data-col="2" placeholder="...">
+                        <input type="number" class="cell" data-row="1" data-col="0" placeholder="...">
+                        <input type="number" class="cell" data-row="1" data-col="1" placeholder="...">
+                        <input type="number" class="cell" data-row="1" data-col="2" placeholder="...">
+                        <input type="number" class="cell" data-row="2" data-col="0" placeholder="...">
+                        <input type="number" class="cell" data-row="2" data-col="1" placeholder="...">
+                        <input type="number" class="cell" data-row="2" data-col="2" placeholder="...">
+                    </div>
+                </div>
+            </div>
+
+            <div class="buttons">
+                <button class="btn btn-verify" onclick="verificar()">
+                    Sumar
+                </button>
+                <button class="btn btn-clear" onclick="limpiar()">
+                    Limpiar
+                </button>
+            </div>
+
+            <div id="result" class="result"></div>
+        </div>
+
+        <script>
+
+            function obtenerGrid() {
+                const cells = document.querySelectorAll('.cell');
+                const grid = [[], [], []];
+                
+                cells.forEach(cell => {
+                    const row = parseInt(cell.dataset.row);
+                    const col = parseInt(cell.dataset.col);
+                    const value = cell.value.trim();
+                    grid[row][col] = value === '' ? null : parseInt(value);
+                });
+                
+                return grid;
+            }
+
+            function limpiarResultados() {
+                const labels = document.querySelectorAll('.sum-label');
+                labels.forEach(label => label.remove());
+            }
+
+            function verificar() {
+                limpiarResultados();
+                
+                const grid = obtenerGrid();
+                
+                fetch('/verificar', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ grid: grid })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    mostrarResultados(data);
+                });
+            }
+
+            function mostrarResultados(data) {
+                const resultDiv = document.getElementById('result');
+                const gridContainer = document.getElementById('gridContainer');
+                
+                if (!data.completo) {
+                    resultDiv.className = 'result result-error show';
+                    resultDiv.innerHTML = '<h3> ' + data.mensaje + '</h3>';
+                    return;
+                }
+
+                // sumas de filas
+                data.detalles.filter(d => d.tipo.includes('Fila')).forEach((detalle, idx) => {
+                    const label = document.createElement('div');
+                    label.className = `sum-label sum-row ${detalle.correcto ? 'sum-correct' : 'sum-incorrect'}`;
+                    label.textContent = detalle.suma;
+                    label.style.top = `${idx * 78 + 25}px`;
+                    gridContainer.appendChild(label);
+                });
+
+                // sumas de columnas
+                data.detalles.filter(d => d.tipo.includes('Columna')).forEach((detalle, idx) => {
+                    const label = document.createElement('div');
+                    label.className = `sum-label sum-col ${detalle.correcto ? 'sum-correct' : 'sum-incorrect'}`;
+                    label.textContent = detalle.suma;
+                    label.style.left = `${idx * 78 + 25}px`;
+                    gridContainer.appendChild(label);
+                });
+
+                // diagonal principal
+                const diagPrincipal = data.detalles.find(d => d.tipo.includes('principal'));
+                if (diagPrincipal) {
+                    const label = document.createElement('div');
+                    label.className = `sum-label sum-diag-main ${diagPrincipal.correcto ? 'sum-correct' : 'sum-incorrect'}`;
+                    label.textContent = '↘ ' + diagPrincipal.suma;
+                    gridContainer.appendChild(label);
+                }
+
+                // diagonal secundaria
+                const diagSecundaria = data.detalles.find(d => d.tipo.includes('secundaria'));
+                if (diagSecundaria) {
+                    const label = document.createElement('div');
+                    label.className = `sum-label sum-diag-sec ${diagSecundaria.correcto ? 'sum-correct' : 'sum-incorrect'}`;
+                    label.textContent = '↗ ' + diagSecundaria.suma;
+                    gridContainer.appendChild(label);
+                }
+
+                // mensaje final
+                resultDiv.className = `result ${data.es_valido ? 'result-success' : 'result-error'} show`;
+                const icono = data.es_valido ? '' : '';
+                resultDiv.innerHTML = `<h3>${icono} ${data.mensaje}</h3>`;
+            }
+
+            function limpiar() {
+                document.querySelectorAll('.cell').forEach(cell => {
+                    cell.value = '';
+                });
+                document.getElementById('result').className = 'result';
+                limpiarResultados();
+            }
+
+        </script>
+
+    </body>
+
+</html>
